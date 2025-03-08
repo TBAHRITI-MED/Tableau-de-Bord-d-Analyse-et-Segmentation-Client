@@ -1882,7 +1882,7 @@ elif page == "Visualisation 3D":
                 marker=dict(
                     size=3,
                     color=cluster_data['Cluster'],
-                    colorscale='Plotly',
+                    colorscale='Rainbow',
                     opacity=0.1
                 ),
                 showlegend=False
