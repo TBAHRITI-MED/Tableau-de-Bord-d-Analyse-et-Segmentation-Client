@@ -337,8 +337,9 @@ if page == "Accueil":
         )
         st.plotly_chart(fig, use_container_width=True)
     
-    # Afficher un graphique à secteurs pour une variable catégorielle
-    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+    # Exclure 'dt_customer' des variables catégorielles
+    cat_cols = [col for col in df.select_dtypes(include=['object']).columns.tolist() if col != 'Dt_Customer']
+    
     if cat_cols:
         st.subheader("Répartition des Variables Catégorielles")
         
@@ -424,20 +425,7 @@ elif page == "Données Démographiques":
         buf = plt_to_streamlit(plt.gcf())
         st.image(buf)
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Distribution de la récence avec violin plot
-        if 'Recency' in df.columns:
-            plt.figure(figsize=(12, 6))
-            set_labels(x="Number of Days Since Customer's Last Purchase", title="Distribution of Customer Recency")
-            sns.violinplot(x=df['Recency'], palette=palette)
-            
-            # Convertir en image pour Streamlit
-            buf = plt_to_streamlit(plt.gcf())
-            st.image(buf)
-    
-    with col2:
+
         # Relation entre âge et revenu avec nuage de points interactif
         if 'Age' in df.columns and 'Income' in df.columns:
             fig = px.scatter(
@@ -522,26 +510,6 @@ elif page == "Données Démographiques":
             yaxis_title="Revenu Moyen"
         )
         st.plotly_chart(fig, use_container_width=True)
-    
-    # Pairplot pour visualiser les relations entre plusieurs variables
-    st.subheader("Relations entre les Principales Variables Démographiques")
-    
-    if all(col in df.columns for col in ['Income', 'Age', 'Recency']):
-        if 'Spent' not in df.columns and 'TotalDepenses' in df.columns:
-            df['Spent'] = df['TotalDepenses']
-        
-        if 'Spent' in df.columns and 'Marital_Status' in df.columns:
-            plt.figure(figsize=(12, 10))
-            sns.pairplot(df[['Income', 'Age', 'Recency', 'Spent', 'Marital_Status']], 
-                        hue='Marital_Status', 
-                        palette='Set2',
-                        diag_kind='kde',
-                        plot_kws={'alpha': 0.6})
-            plt.tight_layout()
-            
-            # Convertir en image pour Streamlit
-            buf = plt_to_streamlit(plt.gcf())
-            st.image(buf)
 # Page Comportement d'Achat
 elif page == "Comportement d'Achat":
     st.markdown("## <p style='background-color:#682F2F;color:#FFF9ED;font-size:120%;padding:10px;border-radius:10px'>Analyse du Comportement d'Achat</p>", unsafe_allow_html=True)
@@ -1175,38 +1143,6 @@ elif page == "Segmentation des Clients":
             )
             st.plotly_chart(fig, use_container_width=True)
             
-            # Graphique radar des dépenses par catégorie pour chaque segment de revenu
-            if all(col in df.columns for col in ['MntWines', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 'MntSweetProducts']):
-                # Calculer les dépenses moyennes par catégorie pour chaque segment
-                cat_cols = ['MntWines', 'MntFruits', 'MntMeatProducts', 'MntFishProducts', 'MntSweetProducts']
-                cat_names = [col.replace('Mnt', '').replace('Products', '') for col in cat_cols]
-                
-                income_cat_spend = df.groupby('SegmentRevenu')[cat_cols].mean().reset_index()
-                
-                # Préparer les données pour le graphique radar
-                fig = go.Figure()
-                
-                for i, segment in enumerate(income_cat_spend['SegmentRevenu']):
-                    fig.add_trace(go.Scatterpolar(
-                        r=income_cat_spend.iloc[i][cat_cols].values,
-                        theta=cat_names,
-                        fill='toself',
-                        name=segment
-                    ))
-                
-                fig.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
-                            visible=True,
-                            range=[0, income_cat_spend[cat_cols].max().max() * 1.1]
-                        )
-                    ),
-                    showlegend=True,
-                    title="Profil de Dépenses par Segment de Revenu"
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-    
     # Segmentation par âge
     if 'Age' in df.columns:
         st.subheader("Segmentation par Âge")
@@ -1371,43 +1307,7 @@ elif page == "Segmentation des Clients":
                 yaxis_title="Revenu"
             )
             st.plotly_chart(fig, use_container_width=True)
-            
-            # Caractéristiques moyennes par segment d'achat
-            if 'Age' in df.columns and 'NumWebVisitsMonth' in df.columns and 'Recency' in df.columns:
-                st.subheader("Caractéristiques Moyennes par Segment d'Achat")
-                
-                segment_avg = df.groupby('SegmentAchat')[['Age', 'Income', 'NumWebVisitsMonth', 'Recency']].mean().reset_index()
-                
-                # Préparer les données pour le radar chart
-                segment_avg_scaled = segment_avg.copy()
-                for col in ['Age', 'Income', 'NumWebVisitsMonth', 'Recency']:
-                    min_val = segment_avg[col].min()
-                    max_val = segment_avg[col].max()
-                    segment_avg_scaled[col] = (segment_avg[col] - min_val) / (max_val - min_val)
-                
-                # Créer le radar chart
-                fig = go.Figure()
-                
-                for i, segment in enumerate(segment_avg_scaled['SegmentAchat']):
-                    fig.add_trace(go.Scatterpolar(
-                        r=segment_avg_scaled.iloc[i][['Age', 'Income', 'NumWebVisitsMonth', 'Recency']].values,
-                        theta=['Âge', 'Revenu', 'Visites Web', 'Récence'],
-                        fill='toself',
-                        name=segment
-                    ))
-                
-                fig.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
-                            visible=True,
-                            range=[0, 1]
-                        )
-                    ),
-                    showlegend=True,
-                    title="Caractéristiques des Segments d'Achat (Normalisées)"
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
+        
     
     # Segmentation multi-critères (2D)
     st.subheader("Segmentation Multi-critères")
